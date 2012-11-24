@@ -61,11 +61,38 @@ lemma void nodes_append(struct node *start, struct node *new)
       start + count, 1, nodes_cons(start + count, nodes_nil));
   }
 }
+
+//lemma void nodes_extract(struct node *start, int offset, int target_offset)
+//  requires  nodes_predicate(start, ?count1, ?values1) &*&
+//            nodes_predicate(start + count1, ?count2, ?values2) &*&
+//            offset >= 0 &*&
+//            offset <= count1 + count2 &*&
+//            target_offset >= 0 &*&
+//            target_offset <= count1 + count2 &*&
+//            count1 >= 0 &*&
+//            count2 >= 0 &*&
+//            count1 + count2 > 0 &*&
+//            offset <= target_offset &*&
+//            offset + count2 >= target_offset;
+//  ensures   nodes_predicate(start, offset, ?values3) &*&
+//            node(start + offset, _, _, _) &*&
+//            nodes_predicate(start + offset + 1,
+//                            count1 + count2 - offset - 1,
+//                            ?values4);
+//{
+//  if (offset < target_offset) {
+//    open nodes_predicate(start + count1, count2, values2);
+//    nodes_append(start, start + count1);
+//    nodes_extract(start, offset + 1, target_offset);
+//    
+//  }
+//}
+
   
 @*/
 
-void bfs(struct node *nodes, int nNodes, int start)
-  //@ requires nNodes > 0 &*& 0 <= start &*& start < nNodes &*& nodes_predicate(nodes, nNodes, ?values) &*& nNodes == nodes_count(values);
+void bfs(struct node *nodes, int nNodes)
+  //@ requires nNodes > 0 &*& nodes_predicate(nodes, nNodes, ?values) &*& nNodes == nodes_count(values);
   //@ ensures nodes_predicate(nodes, nNodes, _);
 {
   const int INFINITY = 100000;
@@ -81,21 +108,24 @@ void bfs(struct node *nodes, int nNodes, int start)
     (nodes + i)->distance = INFINITY;
     //@ close node(nodes + i, INFINITY, _, _);
     //@ nodes_append(nodes, nodes + i);
-    /// close nodes_predicate(nodes, i + 1, _);
-    /// leak nodes(nodes, i);
   }
   //@open nodes_predicate(nodes + i, 0, _);
   assert(i == nNodes);
+  int queue[1000];
+  int begin = 0;
+  int end = 1;
+  queue[begin] = 0;
+  struct node *node = nodes;
+  //@ open nodes_predicate(nodes, nNodes, _);
+  //@ open node(nodes, _, _, _);
+  node->distance = 0;
+  //@ close node(node, 0, _, _);
+  //@ close nodes_predicate(nodes, nNodes, _);
 }
     /// invariant node(nodes + i, _, _, _);
 
 /*void bfs(node_t *nodes, int nNodes, int start)*/
 /*{*/
-  /*int queue[1000];*/
-  /*int begin = 0;*/
-  /*int end = 1;*/
-  /*queue[begin] = start;*/
-  /*nodes[start-1].distance = 0;*/
 
   /*while(begin < end) {*/
     /*printf("Popped node %d from stack.\n", queue[begin]);*/
