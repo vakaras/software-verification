@@ -62,6 +62,15 @@ lemma void nodes_append(struct node *start, struct node *new)
   }
 }
 
+inductive integers = integers_nil | integers_cons(int *, integers);
+
+predicate integer_predicate(int *start, int count, integers values) =
+  count == 0 ?
+  values == integers_nil :
+  integer(start, _) &*&
+  integer_predicate(start + 1, count - 1, ?integers0) &*&
+  values == integers_cons(start, integers0);
+
 //lemma void nodes_extract(struct node *start, int offset, int target_offset)
 //  requires  nodes_predicate(start, ?count1, ?values1) &*&
 //            nodes_predicate(start + count1, ?count2, ?values2) &*&
@@ -112,15 +121,20 @@ void bfs(struct node *nodes, int nNodes)
   //@open nodes_predicate(nodes + i, 0, _);
   assert(i == nNodes);
   int queue[1000];
-  int begin = 0;
-  int end = 1;
-  queue[begin] = 0;
+  queue[0] = 0;
   struct node *node = nodes;
   //@ open nodes_predicate(nodes, nNodes, _);
   //@ open node(nodes, _, _, _);
   node->distance = 0;
   //@ close node(node, 0, _, _);
   //@ close nodes_predicate(nodes, nNodes, _);
+  int *begin = queue;
+  //@ close integer_predicate(begin, 1, _);
+  for (i = 0; i != nNodes; i++)
+    //@ invariant integer(begin, _);
+  {
+    int index = *begin;
+  }
 }
     /// invariant node(nodes + i, _, _, _);
 
