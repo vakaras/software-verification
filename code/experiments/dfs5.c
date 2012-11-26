@@ -1,3 +1,7 @@
+/*
+ * Prooved: Each node in a “tree” is visited and the distance of the child
+ * is bigger by one than the distance of the parent.
+ */
 struct node {
   struct node *child;
   struct node *parent;
@@ -42,14 +46,17 @@ predicate visited_node_p(
     int distance) =
   node != 0 &*&
   node->child |-> child &*&
-  visited_child_p(child, node) &*&
+  visited_child_p(child, node, distance + 1) &*&
   node->parent |-> parent &*&
   node->distance |-> distance;
 
-predicate visited_child_p(struct node *child, struct node *parent) =
+predicate visited_child_p(
+    struct node *child,
+    struct node *parent,
+    int distance) =
   child == 0 ?
   emp :
-  visited_node_p(child, _, parent, _);
+  visited_node_p(child, _, parent, distance);
 
 @*/
 
@@ -69,11 +76,11 @@ void dfs(struct node *node, int depth)
     child->distance = depth + 1;
     //@ close visiting_node_p(child, _, _, _);
     dfs(child, depth + 1);
-    //@ close visited_child_p(child, node);
-    //@ close visited_node_p(node, _, _, _);
+    //@ close visited_child_p(child, node, depth + 1);
+    //@ close visited_node_p(node, _, _, depth);
   } else {
     //@ open unvisited_child_p(child);
-    //@ close visited_child_p(child, node);
-    //@ close visited_node_p(node, _, _, _);
+    //@ close visited_child_p(child, node, depth + 1);
+    //@ close visited_node_p(node, _, _, depth);
   }
 }
