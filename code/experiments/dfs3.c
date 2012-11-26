@@ -25,6 +25,24 @@ predicate child_p(
 inductive children_i  = children_nil |
                         children_cons(struct node *, children_i);
 
+fixpoint children_i children_append(children_i values, struct node *new)
+{
+  switch (values) {
+    case children_nil: return children_cons(new, children_nil);
+    case children_cons(head, tail):
+      return children_cons(head, children_append(tail, new));
+  }
+}
+
+fixpoint children_i children_reverse(children_i values)
+{
+  switch (values) {
+    case children_nil: return children_nil;
+    case children_cons(head, tail):
+      return children_append(children_reverse(tail), head);
+  }
+}
+
 predicate children_p(struct list_node *container, children_i children) =
   container == 0 ?
   children == children_nil :
@@ -46,6 +64,14 @@ predicate node_p(
 
 inductive parents_i = parents_nil |
                       parents_cons(struct node *, int, parents_i);
+
+fixpoint struct node *parents_head(parents_i values)
+{
+  switch (values) {
+    case parents_nil: return 0;
+    case parents_cons(node, distance, tail): return node;
+  }
+}
 
 predicate parents_p(
     struct node *node,
@@ -77,7 +103,7 @@ predicate visited_children_p(struct list_node *container, children_i children) =
   container == 0 ?
   children == children_nil :
   visited_child_p(container, ?next, ?node) &*&
-  visited_node_p(node, _, _, _) &*&
+  visited_node_p(node, _, _, _, _) &*&
   visited_children_p(next, ?tail) &*&
   children == children_cons(node, tail);
 
@@ -113,13 +139,15 @@ predicate visited_node_p(
     struct node *node,
     children_i children,
     parents_i parents,
+    struct node *parent,
     int distance) =
   node != 0 &*&
   node->children |-> ?container &*&
   visited_children_p(container, children) &*&
   node->distance |-> distance &*&
-  node->parent |-> ?parent &*&
-  parents_p(parent, distance - 1, parents, _);
+  node->parent |-> parent &*&
+  parent == parents_head(parents);
+//parents_p(parent, distance - 1, parents, _);
 
 @*/
 
@@ -130,9 +158,10 @@ void dfs_worker(struct node *root, int depth, struct node *parent)
                 parents_p(parent, depth - 1, ?parents, ?parent_parent);
   @*/
   /*@ ensures   visited_node_p(root, ?visited_children,
-                               parents_cons(root, depth, parents), depth) &*&
-                children == visited_children &*&
+                               parents,
+                               parent, depth) &*&
                 parents_p(parent, depth - 1, parents, parent_parent);
+                //&*& children_reverse(children) == visited_children;
   @*/
 {
   //@ open node_p(root, children);
@@ -146,7 +175,7 @@ void dfs_worker(struct node *root, int depth, struct node *parent)
                   children_p(container, ?children_loop) &*&
                   root->distance |-> depth &*&
                   root->parent |-> parent &*&
-                  parents_p(parent, depth - 1, parents, _) &*&
+                  parents_p(parent, depth - 1, parents, parent_parent) &*&
                   visited_children_p(new_list, ?visited_children_loop);
     @*/
   {
@@ -166,10 +195,12 @@ void dfs_worker(struct node *root, int depth, struct node *parent)
     container = tmp;
     //@ open parents_p(root, depth, parents_cons(root, depth, parents), parent);
   }
-  //@ close parents_p(root, depth, parents_cons(root, depth, parents), parent);
   //@ open children_p(container, _);
+  /// close parents_p(root, depth, parents_cons(root, depth, parents), parent);
   root->children = new_list;
-  //@ close visited_node_p(root, _, parents_cons(root, depth, parents), depth);
+  //@ open parents_p(parent, depth - 1, parents, parent_parent);
+  //@ close visited_node_p(root, _, parents, parent, depth);
+  //@ close parents_p(parent, depth - 1, parents, parent_parent);
 }
 
 void dfs(struct node *root)
