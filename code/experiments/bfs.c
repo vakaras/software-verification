@@ -249,22 +249,69 @@ struct node *queue_pop(struct queue *queue)
   return node;
 }
 
-//void bfs(struct node *node, struct node **queue, int queue_size)
-//  /*@ requires  unvisited_node_p(node, ?node_children_count,
-//                                ?node_children, _, _) &*&
-//                visiting_node_queue_p(queue, queue_size) &*&
-//                queue_size > 0;
-//  @*/
-//  /*@ ensures   visited_node_p(node, node_children_count,
-//                               node_children, 0, 0);
-//  @*/
-//{
-//  //@ open unvisited_node_p(node, node_children_count, node_children, _, _);
-//  node->parent = 0;
-//  node->distance = 0;
-//  //@ close visiting_node_p(node, node_children_count, node_children, 0, 0);
-//  int begin = 0;
-//  int end = 0;
-//  *(queue + end) = node;
-//  //@ visiting_node_queue_append(queue + begin, node);
-//}
+int queue_size(struct queue *queue)
+  //@ requires  visiting_node_queue_p(queue, ?count);
+  /*@ ensures   visiting_node_queue_p(queue, count) &*&
+                result == count;
+  @*/
+{
+  //@ open visiting_node_queue_p(queue, count);
+  return queue->length;
+  //@ close visiting_node_queue_p(queue, count);
+}
+
+void bfs(struct node *root, struct queue *queue)
+  /*@ requires  unvisited_node_p(root, ?root_children_count,
+                                ?root_children, _, _) &*&
+                visiting_node_queue_p(queue, ?queue_size) &*&
+                queue_size == 0;
+  @*/
+  /*@ ensures   visited_node_p(root, root_children_count,
+                               root_children, 0, 0) &*&
+                visiting_node_queue_p(queue, queue_size);
+  @*/
+{
+  //@ open unvisited_node_p(root, root_children_count, root_children, _, _);
+  root->parent = 0;
+  root->distance = 0;
+  //@ close visiting_node_p(root, root_children_count, root_children, 0, 0);
+  queue_append(queue, root);
+  int length;
+  length = queue_size(queue);
+  while (length != 0)
+    /*@ invariant visiting_node_queue_p(queue, length) &*&
+                  length >= 0;
+    @*/
+  {
+    struct node *node;
+    node = queue_pop(queue);
+    /*@ open visiting_node_p(node, ?node_children_count,
+                             ?node_children, ?parent, ?depth);
+    @*/
+    int children_count = node->children_count;
+    struct node *children = node->children;
+    int i = 0;
+    for (; i != children_count; i++)
+      /*@ invariant unvisited_children_p(children + i, children_count - i) &*&
+                    node->distance |-> depth &*&
+                    visiting_node_queue_p(queue, ?length1) &*&
+                    length1 >= 0 &*&
+                    i >= 0;
+      @*/
+    {
+      //@ open unvisited_children_p(children + i, children_count - i);
+      struct node *child = children + i;
+      //@ open unvisited_child_p(child);
+      //@ open unvisited_node_p(child, _, _, _, _);
+      child->parent = node;
+      child->distance = node->distance + 1;
+      //@ close visiting_node_p(child, _, _, node, depth + 1);
+      queue_append(queue, child);
+    }
+    //@ open unvisited_children_p(children + i, children_count - i);
+    //@ close visited_node_p(node, _, _, _, depth);
+    // Add to visiting_children_node_list_p.
+    length = queue_size(queue);
+  }
+  //@ assert visited_node_p(root, _, _, _, _);
+}

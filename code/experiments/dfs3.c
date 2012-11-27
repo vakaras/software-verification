@@ -6,7 +6,7 @@ struct list_node {
 };
 
 struct node {
-  struct list_node *children;
+  struct node **children;
   struct node *parent;
   int distance;
 };
@@ -134,6 +134,19 @@ predicate visited_children_p(struct list_node *container, children_i children) =
 //  close visited_children_p(start, _);
 //}
 //}
+
+predicate unvisited_node_p(
+    struct node *node,
+    children_i children,
+    parents_i parents,
+    struct node *parent,
+    int distance) =
+  node != 0 &*&
+  node->children |-> ?container &*&
+  unvisited_children_p(container, children) &*&
+  node->distance |-> distance &*&
+  node->parent |-> parent &*&
+  parent == parents_head(parents);
   
 predicate visited_node_p(
     struct node *node,
@@ -147,28 +160,19 @@ predicate visited_node_p(
   node->distance |-> distance &*&
   node->parent |-> parent &*&
   parent == parents_head(parents);
-//parents_p(parent, distance - 1, parents, _);
 
 @*/
 
 
-void dfs_worker(struct node *root, int depth, struct node *parent)
+void dfs_worker(struct node *root, int depth)
   /*@ requires  depth >= 0 &*&
-                node_p(root, ?children) &*&
-                parents_p(parent, depth - 1, ?parents, ?parent_parent);
+                unvisited_node_p(root, ?children, ?parents, ?parent, depth);
   @*/
-  /*@ ensures   visited_node_p(root, ?visited_children,
-                               parents,
-                               parent, depth) &*&
-                parents_p(parent, depth - 1, parents, parent_parent);
-                //&*& children_reverse(children) == visited_children;
+  /*@ ensures   visited_node_p(root, children, parents, parent, depth);
   @*/
 {
   //@ open node_p(root, children);
-  root->distance = depth;
-  root->parent = parent;
   struct list_node *container = root->children;
-  struct list_node *new_list = 0;
   //@ close visited_children_p(new_list, children_nil);
   while (container != 0)
     /*@ invariant 
