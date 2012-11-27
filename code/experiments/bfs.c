@@ -1,216 +1,245 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-/*#include "bfs.h"*/
+#include "malloc.h"
+#include "stdlib.h"
 
-//#define MAX_NODES 1000
-//#define INFINITY 100000
-
-/*const int MAX_NODES = 1000;*/
-
+/*
+ * Prooved: Each node in a “tree” is visited and the distance of the child
+ * is bigger by one than the distance of the parent.
+ */
 struct node {
-  int nNeighbours;
-  int *neighbours;
+  int children_count;
+  struct node *children;
+  struct node *parent;
   int distance;
 };
-/*typedef struct node node_t;*/
+
+struct queue_node {
+  struct node *node;
+  struct queue_node *next;
+};
+
+struct queue {
+  int length;
+  struct queue_node *first;
+};
 
 /*@
- 
-predicate integers(int *start, int count) =
-  count <= 0 ? true : integer(start, _) &*& integers(start + 1, count - 1);
 
-predicate node(struct node *no, int d, int *nb, int nNeighbours) =
-  no != 0 &*&
-  no->distance |-> d &*&
-  no->neighbours |-> nb &*&
-  no->nNeighbours |-> nNeighbours &*&
-  integers(nb, nNeighbours)
-  ;
+predicate unvisited_node_p(
+    struct node *node,
+    int children_count,
+    struct node *children,
+    struct node *parent,
+    int distance) =
+  node != 0 &*&
+  node->children_count |-> children_count &*&
+  children_count >= 0 &*&
+  node->children |-> children &*&
+  unvisited_children_p(children, children_count) &*&
+  node->parent |-> parent &*&
+  parent == 0 &*&
+  node->distance |-> distance &*&
+  distance == -1;
 
-inductive nodes = nodes_nil | nodes_cons(struct node *, nodes);
+predicate unvisited_child_p(struct node *child) =
+  child != 0 &*&
+  unvisited_node_p(child, _, _, _, _);
 
-fixpoint int nodes_count(nodes values) {
-  switch (values) {
-    case nodes_nil: return 0;
-    case nodes_cons(start, values0): return nodes_count(values0) + 1;
-  }
-}
-
-predicate nodes_predicate(struct node *start, int count, nodes values) =
+predicate unvisited_children_p(struct node *start, int count) =
   count == 0 ?
-  values == nodes_nil :
-  node(start, _, _, _) &*&
-  nodes_predicate(start + 1, count - 1, ?nodes0) &*&
-  values == nodes_cons(start, nodes0);
+  emp :
+  unvisited_child_p(start) &*&
+  unvisited_children_p(start + 1, count - 1);
 
-lemma void nodes_append(struct node *start, struct node *new)
-  requires nodes_predicate(start, ?count, ?values) &*&
-           node(new, _, _, _) &*&
-           new == start + count &*&
-           count >= 0;
-  ensures nodes_predicate(start, count + 1, ?values2);
+predicate visiting_node_p(
+    struct node *node,
+    int children_count,
+    struct node *children,
+    struct node *parent,
+    int distance) =
+  node != 0 &*&
+  node->children_count |-> children_count &*&
+  children_count >= 0 &*&
+  node->children |->children &*&
+  unvisited_children_p(children, children_count) &*&
+  node->parent |-> parent &*&
+  node->distance |-> distance;
+
+predicate visited_node_p(
+    struct node *node,
+    int children_count,
+    struct node *children,
+    struct node *parent,
+    int distance) =
+  node != 0 &*&
+  node->children_count |-> children_count &*&
+  children_count >= 0 &*&
+  node->children |->children &*&
+  visited_children_p(children, children_count, node, distance + 1) &*&
+  node->parent |-> parent &*&
+  node->distance |-> distance;
+
+predicate visited_child_p(
+    struct node *child,
+    struct node *parent,
+    int distance) =
+  child == 0 ?
+  emp :
+  visited_node_p(child, _, _, parent, distance);
+
+predicate visited_children_p(
+    struct node *start,
+    int count,
+    struct node *parent,
+    int distance) =
+  count == 0 ?
+  emp :
+  visited_child_p(start, parent, distance) &*&
+  visited_children_p(start + 1, count - 1, parent, distance);
+
+lemma void visited_children_append(
+    struct node *children,
+    int count)
+  requires  visited_children_p(children, count, ?parent, ?depth) &*&
+            visited_child_p(children + count, parent, depth) &*&
+            count >= 0;
+  ensures   visited_children_p(children, count + 1, parent, depth);
 {
-  open nodes_predicate(start, count, values);
-  if (count != 0) {
-    nodes_append(start + 1, new);
-    close nodes_predicate(start, count + 1, _);
+  open visited_children_p(children, count, parent, depth);
+  if (count == 0) {
+    close visited_children_p(children + 1, 0, parent, depth);
   } else {
-    close nodes_predicate(start + 1, 0, nodes_nil);
-    close nodes_predicate(
-      start + count, 1, nodes_cons(start + count, nodes_nil));
+    visited_children_append(children + 1, count - 1);
   }
+  close visited_children_p(children, count + 1, parent, depth);
 }
 
-inductive integers = integers_nil | integers_cons(int *, integers);
-
-predicate integer_predicate(int *start, int count, integers values) =
+predicate visiting_node_queue_node_p(
+    struct queue_node *queue_node,
+    int count) =
   count == 0 ?
-  values == integers_nil :
-  integer(start, _) &*&
-  integer_predicate(start + 1, count - 1, ?integers0) &*&
-  values == integers_cons(start, integers0);
+  queue_node == 0 :
+  queue_node != 0 &*&
+  malloc_block_queue_node(queue_node) &*&
+  queue_node->node |-> ?node &*&
+  visiting_node_p(node, _, _, _, _) &*&
+  queue_node->next |-> ?next &*&
+  visiting_node_queue_node_p(next, count - 1);
 
-//lemma void nodes_extract(struct node *start, int offset, int target_offset)
-//  requires  nodes_predicate(start, ?count1, ?values1) &*&
-//            nodes_predicate(start + count1, ?count2, ?values2) &*&
-//            offset >= 0 &*&
-//            offset <= count1 + count2 &*&
-//            target_offset >= 0 &*&
-//            target_offset <= count1 + count2 &*&
-//            count1 >= 0 &*&
-//            count2 >= 0 &*&
-//            count1 + count2 > 0 &*&
-//            offset <= target_offset &*&
-//            offset + count2 >= target_offset;
-//  ensures   nodes_predicate(start, offset, ?values3) &*&
-//            node(start + offset, _, _, _) &*&
-//            nodes_predicate(start + offset + 1,
-//                            count1 + count2 - offset - 1,
-//                            ?values4);
-//{
-//  if (offset < target_offset) {
-//    open nodes_predicate(start + count1, count2, values2);
-//    nodes_append(start, start + count1);
-//    nodes_extract(start, offset + 1, target_offset);
-//    
-//  }
-//}
+predicate visiting_node_queue_p(
+    struct queue *queue,
+    int count) =
+  queue->first |-> ?first &*&
+  queue->length |-> count &*&
+  count >= 0 &*&
+  visiting_node_queue_node_p(first, count);
 
-  
 @*/
 
-void bfs(struct node *nodes, int nNodes)
-  //@ requires nNodes > 0 &*& nodes_predicate(nodes, nNodes, ?values) &*& nNodes == nodes_count(values);
-  //@ ensures nodes_predicate(nodes, nNodes, _);
+void dfs_worker(struct node *node, int depth)
+  /*@ requires  depth >= 0 &*&
+                visiting_node_p(node, ?node_children_count,
+                                ?node_children, ?parent, depth);
+  @*/
+  /*@ ensures   visited_node_p(node, node_children_count,
+                               node_children, parent, depth);
+  @*/
 {
-  const int INFINITY = 100000;
-  /// open nodes_predicate(nodes, nNodes, values);
-  //@ close nodes_predicate(nodes, 0, nodes_nil);
-  int i;
-  for (i = 0; i != nNodes; i++)
-    //@ invariant nodes_predicate(nodes, i, ?values1) &*&  nodes_predicate(nodes + i, nNodes - i, ?values2) &*&  i >= 0;
+  /*@ open visiting_node_p(node, node_children_count,
+                           node_children, parent, depth);
+  @*/
+  int children_count = node->children_count;
+  struct node *children = node->children;
+  int i = 0;
+  //@ close visited_children_p(children, 0, node, depth + 1);
+  for (; i != children_count; i++)
+    /*@ invariant unvisited_children_p(children + i, children_count - i) &*&
+                  visited_children_p(children, i, node, depth + 1) &*&
+                  i >= 0;
+    @*/
   {
-    assert(i + 1 > 0);
-    //@ open nodes_predicate(nodes + i, nNodes - i, values2);
-    //@ open node(nodes + i, _, _, _);
-    (nodes + i)->distance = INFINITY;
-    //@ close node(nodes + i, INFINITY, _, _);
-    //@ nodes_append(nodes, nodes + i);
+    //@ open unvisited_children_p(children + i, children_count - i);
+    struct node *child = children + i;
+    //@ open unvisited_child_p(child);
+    //@ open unvisited_node_p(child, _, _, _, _);
+    child->parent = node;
+    child->distance = depth + 1;
+    //@ close visiting_node_p(child, _, _, node, depth + 1);
+    dfs_worker(child, depth + 1);
+    //@ close visited_child_p(child, node, depth + 1);
+    //@ visited_children_append(children, i);
   }
-  //@open nodes_predicate(nodes + i, 0, _);
-  assert(i == nNodes);
-  int queue[1000];
-  queue[0] = 0;
-  struct node *node = nodes;
-  //@ open nodes_predicate(nodes, nNodes, _);
-  //@ open node(nodes, _, _, _);
-  node->distance = 0;
-  //@ close node(node, 0, _, _);
-  //@ close nodes_predicate(nodes, nNodes, _);
-  int *begin = queue;
-  //@ close integer_predicate(begin, 1, _);
-  for (i = 0; i != nNodes; i++)
-    //@ invariant integer(begin, _);
+  assert(children_count - i == 0);
+  //@ open unvisited_children_p(children + i, children_count - i);
+  //@ close visited_node_p(node, _, _, _, depth);
+}
+
+struct queue_node *queue_append_worker(
+    struct queue_node *queue_node,
+    struct node *node,
+    int length)
+  /*@ requires  visiting_node_queue_node_p(queue_node, length) &*&
+                visiting_node_p(node, _, _, _, _) &*&
+                length >= 0;
+  @*/
+  /*@ ensures   visiting_node_queue_node_p(result, length + 1) &*&
+                result != 0;
+  @*/ 
+{
+  struct queue_node *tmp;
+  //@ open visiting_node_queue_node_p(queue_node, length);
+  if (length == 0)
   {
-    int index = *begin;
+    assert(queue_node == 0);
+    tmp = malloc(sizeof(struct queue_node));
+    if (tmp == 0) {
+      abort();
+    }
+    tmp->node = node;
+    tmp->next = 0;
+    //@close visiting_node_queue_node_p(0, 0);
+    //@close visiting_node_queue_node_p(tmp, 1);
+    return tmp;
+  } else {
+    tmp = queue_append_worker(queue_node->next, node, length - 1);
+    queue_node->next = tmp;
+    assert(queue_node != 0);
+    //@close visiting_node_queue_node_p(queue_node, length + 1);
+    return queue_node;
   }
 }
-    /// invariant node(nodes + i, _, _, _);
 
-/*void bfs(node_t *nodes, int nNodes, int start)*/
-/*{*/
+void queue_append(struct queue *queue, struct node *node)
+  /*@ requires  visiting_node_queue_p(queue, ?count) &*&
+                visiting_node_p(node, _, _, _, _);
+  @*/
+  /*@ ensures   visiting_node_queue_p(queue, count + 1);
+  @*/ 
+{
+  struct queue_node *tmp;
+  //@ open visiting_node_queue_p(queue, count);
+  //@ assert(count == queue->length);
+  tmp = queue_append_worker(queue->first, node, queue->length);
+  queue->first = tmp;
+  queue->length++;
+  //@ close visiting_node_queue_p(queue, count + 1);
+}
 
-  /*while(begin < end) {*/
-    /*printf("Popped node %d from stack.\n", queue[begin]);*/
-    /*node_t node = nodes[queue[begin++]-1];*/
-    
-    /*for (int j = 0; j < nNodes; j++) {*/
-      /*if (node.neighbours[j]) {*/
-        /*int neighbourId = node.neighbours[j];*/
-        /*nodes[neighbourId-1].distance = node.distance + 1;*/
-        /*queue[end++] = neighbourId;*/
-      /*}*/
-      /*else*/
-        /*break;*/
-    /*}*/
-  /*}*/
-/*}*/
-
-// Input format:
-// * Node numbering starts at 1.
-// * On the 1st line: {#nodes} {#root-node} <- we might require this to be 1
-// * On each of the following #nodes lines: {#children} {child_1} ... {child_n}
-/*int main()*/
-  /*//@ requires true;*/
-  /*//@ ensures true;*/
-/*{*/
-  /*int nNodes, start;*/
-  /*int **neighbours;*/
-
-  /*[>scanf("%d %d\n", &nNodes, &start);<]*/
-  /*nNodes = 4;*/
-  /*start = 1;*/
-  /*neighbours = calloc(nNodes, sizeof(int));*/
-  /*if (neighbours == 0) {*/
-    /*abort();*/
-  /*}*/
-  /*[>node_t nodes_data[1000];<]*/
-  /*[>node_t *nodes = nodes_data;<]*/
-  
-
-  /*[>int size = 1000 * sizeof(int);<]*/
-  /*[>int *neighbours;<]*/
-  /*[>neighbours = malloc(size);<]*/
-
-  /*[>node_t *node = nodes + 0;<]*/
-
-  /*[>(nodes + 0)->neighbours = neighbours;<]*/
-  /*[>(nodes + 0)->neighbours[0] = 2;<]*/
-  /*[>nodes[0].neighbours[1] = 4;<]*/
-  /*[>nodes[0].neighbours[2] = 0;<]*/
-  /*[>nodes[1].neighbours[0] = 0;<]*/
-  /*[>nodes[2].neighbours[0] = 0;<]*/
-  /*[>nodes[3].neighbours[0] = 3;<]*/
-  /*[>nodes[3].neighbours[1] = 0;<]*/
-  
-  /*[>for (int i = 0; i < nNodes; i++) {<]*/
-    /*[>int nChildren;<]*/
-    /*[>scanf("%d", &nChildren);<]*/
-    /*[>int j = 0;<]*/
-    /*[>for (; j < nChildren; j++) {<]*/
-      /*[>scanf("%d", &(nodes[i].neighbours[j]));<]*/
-    /*[>}<]*/
-    /*[>// mark the end<]*/
-    /*[>nodes[i].neighbours[j] = 0;<]*/
-  /*[>}<]*/
-  
-  /*[>bfs(nodes, nNodes, start);<]*/
-  /*[>for (int i = 0; i < nNodes; i++) {<]*/
-    /*[>printf("distance(%d) = %d\n", i, nodes[i].distance);<]*/
-  /*[>}<]*/
-
-  /*free(neighbours);*/
-  
-  /*return 0;*/
-/*}*/
+//void bfs(struct node *node, struct node **queue, int queue_size)
+//  /*@ requires  unvisited_node_p(node, ?node_children_count,
+//                                ?node_children, _, _) &*&
+//                visiting_node_queue_p(queue, queue_size) &*&
+//                queue_size > 0;
+//  @*/
+//  /*@ ensures   visited_node_p(node, node_children_count,
+//                               node_children, 0, 0);
+//  @*/
+//{
+//  //@ open unvisited_node_p(node, node_children_count, node_children, _, _);
+//  node->parent = 0;
+//  node->distance = 0;
+//  //@ close visiting_node_p(node, node_children_count, node_children, 0, 0);
+//  int begin = 0;
+//  int end = 0;
+//  *(queue + end) = node;
+//  //@ visiting_node_queue_append(queue + begin, node);
+//}
