@@ -121,6 +121,7 @@ predicate visiting_node_queue_node_p(
   queue_node != 0 &*&
   malloc_block_queue_node(queue_node) &*&
   queue_node->node |-> ?node &*&
+  node != 0 &*&
   visiting_node_p(node, _, _, _, _) &*&
   queue_node->next |-> ?next &*&
   visiting_node_queue_node_p(next, count - 1);
@@ -179,6 +180,7 @@ struct queue_node *queue_append_worker(
     int length)
   /*@ requires  visiting_node_queue_node_p(queue_node, length) &*&
                 visiting_node_p(node, _, _, _, _) &*&
+                node != 0 &*&
                 length >= 0;
   @*/
   /*@ ensures   visiting_node_queue_node_p(result, length + 1) &*&
@@ -210,6 +212,7 @@ struct queue_node *queue_append_worker(
 
 void queue_append(struct queue *queue, struct node *node)
   /*@ requires  visiting_node_queue_p(queue, ?count) &*&
+                node != 0 &*&
                 visiting_node_p(node, _, _, _, _);
   @*/
   /*@ ensures   visiting_node_queue_p(queue, count + 1);
@@ -222,6 +225,28 @@ void queue_append(struct queue *queue, struct node *node)
   queue->first = tmp;
   queue->length++;
   //@ close visiting_node_queue_p(queue, count + 1);
+}
+
+struct node *queue_pop(struct queue *queue)
+  /*@ requires  visiting_node_queue_p(queue, ?count) &*&
+                count > 0;
+  @*/
+  /*@ ensures   visiting_node_queue_p(queue, count - 1) &*&
+                result != 0 &*&
+                visiting_node_p(result, _, _, _, _);
+  @*/
+{
+  struct queue_node *tmp;
+  //@ open visiting_node_queue_p(queue, count);
+  tmp = queue->first;
+  struct node *node;
+  //@ open visiting_node_queue_node_p(tmp, count);
+  node = tmp->node;
+  queue->first = tmp->next;
+  queue->length--;
+  free(tmp);
+  //@ close visiting_node_queue_p(queue, count-1);
+  return node;
 }
 
 //void bfs(struct node *node, struct node **queue, int queue_size)
