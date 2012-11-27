@@ -12,38 +12,10 @@ struct node {
 
 /*@
 
-inductive children_i =  children_nil |
-                        children_cons(struct node *, children_i);
-
 inductive subtree_children_i = subtree_children_nil |
                                subtree_children_cons(subtree_i, subtree_children_i);
 
 inductive subtree_i = subtree_cons(struct node *, subtree_children_i);
-
-//fixpoint children_i children_append(
-//  children_i children_nodes,
-//  struct node *child)
-//{
-//  switch (children_nodes) {
-//    case children_nil: return children_cons(child, children_nil);
-//    case children_cons(parent, parent_children_nodes):
-//      return children_cons(parent,
-//                           children_append(parent_children_nodes, child));
-//  }
-//}
-
-//fixpoint
-
-
-
-//fixpoint children_i children_front(children_i nodes, int counter)
-//{
-//  if (counter > 0) {
-//    return children_cons(children_front()<++>)<++>
-//  }
-//}
-
-// proove: children_front(nodes, children_count) == nodes
 
 fixpoint subtree_children_i children_merge(
     subtree_children_i nodes1,
@@ -186,7 +158,6 @@ lemma void visited_children_append(
                 subtree_children_cons(subtree, subtree_children_nil)),
               parent, depth);
 {
-  // TODO: Prove that returns an extended children list.
   open visited_children_p(children, count, children_nodes, parent, depth);
   if (count == 0) {
     close visited_children_p(children + 1, 0, subtree_children_nil,
