@@ -214,74 +214,65 @@ void dfs_worker(struct node *node, int depth)
   @*/
   int children_count = node->children_count;
   struct node *children = node->children;
-  if (children_count == 0) {
-    //@ open unvisited_children_p(children, 0, ?subtree_children);
-    //@ assert(node_subtree == subtree_cons(node, subtree_children_nil));
-    /*@ close visited_children_p(
-          children, 0, subtree_children_nil, node, depth + 1);
+  // Opening just to get the value of the subtree_children.
+  /*@ open unvisited_children_p(children, node_children_count,
+                                ?subtree_children);
+  @*/
+  /*@ close unvisited_children_p(children, node_children_count,
+                                 subtree_children);
+  @*/
+  int i = 0;
+  /*@ close visited_children_p(
+        children, 0, subtree_children_nil, node, depth + 1);
+  @*/
+  for (; i != children_count; i++)
+    /*@ invariant unvisited_children_p(
+                    children + i, children_count - i, ?children_nodes1) &*&
+                  visited_children_p(
+                    children, i, ?children_nodes2, node, depth + 1) &*&
+                  (children_merge(children_nodes2, children_nodes1) ==
+                    subtree_children) &*&
+                  i >= 0;
     @*/
-    //@ close visited_node_p(node, _, _, node_subtree, _, depth);
-  } else {
-    /*@ open unvisited_children_p(children, node_children_count,
-                                  ?subtree_children);
+  {
+    /*@ open unvisited_children_p(children + i, children_count - i,
+                                  children_nodes1);
     @*/
-    /*@ close unvisited_children_p(children, node_children_count,
-                                   subtree_children);
+    /*@ open unvisited_children_p(children + i + 1, children_count - i - 1,
+                                  ?children_nodes1_left);
     @*/
-    //@ assert(node_subtree != subtree_cons(node, subtree_children_nil));
-    int i = 0;
-    /*@ close visited_children_p(
-          children, 0, subtree_children_nil, node, depth + 1);
+    /*@ close unvisited_children_p(children + i + 1, children_count - i - 1,
+                                   children_nodes1_left);
     @*/
-    for (; i != children_count; i++)
-      /*@ invariant unvisited_children_p(
-                      children + i, children_count - i, ?children_nodes1) &*&
-                    visited_children_p(
-                      children, i, ?children_nodes2, node, depth + 1) &*&
-                    (children_merge(children_nodes2, children_nodes1) ==
-                      subtree_children) &*&
-                    i >= 0;
-      @*/
-    {
-      /*@ open unvisited_children_p(children + i, children_count - i,
-                                    children_nodes1);
-      @*/
-      /*@ open unvisited_children_p(children + i + 1, children_count - i - 1,
-                                    ?children_nodes1_left);
-      @*/
-      /*@ close unvisited_children_p(children + i + 1, children_count - i - 1,
-                                     children_nodes1_left);
-      @*/
-      struct node *child = children + i;
-      //@ open unvisited_child_p(child, ?child_subtree);
-      //@ open unvisited_node_p(child, _, _, child_subtree, _, _);
-      child->parent = node;
-      child->distance = depth + 1;
-      //@ close visiting_node_p(child, _, _, _, node, depth + 1);
-      dfs_worker(child, depth + 1);
-      //@ close visited_child_p(child, node, depth + 1, child_subtree);
-      //@ visited_children_append(children, i);
-      /*@ children_merge_associative(
-            children_nodes2,
-            subtree_children_cons(child_subtree, subtree_children_nil),
-            children_nodes1_left);
-      @*/
-    }
-    /*@ open visited_children_p(
-                      children, i, ?children_nodes2, node, depth + 1);
+    struct node *child = children + i;
+    //@ open unvisited_child_p(child, ?child_subtree);
+    //@ open unvisited_node_p(child, _, _, child_subtree, _, _);
+    child->parent = node;
+    child->distance = depth + 1;
+    //@ close visiting_node_p(child, _, _, _, node, depth + 1);
+    dfs_worker(child, depth + 1);
+    //@ close visited_child_p(child, node, depth + 1, child_subtree);
+    //@ visited_children_append(children, i);
+    /*@ children_merge_associative(
+          children_nodes2,
+          subtree_children_cons(child_subtree, subtree_children_nil),
+          children_nodes1_left);
     @*/
-    /*@ close visited_children_p(
-                      children, i, children_nodes2, node, depth + 1);
-    @*/
-    /*@ open unvisited_children_p(children + i,
-                                  children_count - i,
-                                  ?children_nodes1);
-    @*/
-    //@ children_merge_nil(children_nodes2);
-    //@ assert(children_nodes2 == subtree_children);
-    assert(children_count - i == 0);
-    //@ close visited_node_p(node, _, _, node_subtree, _, depth);
   }
+  /*@ open visited_children_p(
+                    children, i, ?children_nodes2, node, depth + 1);
+  @*/
+  /*@ close visited_children_p(
+                    children, i, children_nodes2, node, depth + 1);
+  @*/
+  /*@ open unvisited_children_p(children + i,
+                                children_count - i,
+                                ?children_nodes1);
+  @*/
+  //@ children_merge_nil(children_nodes2);
+  //@ assert(children_nodes2 == subtree_children);
+  assert(children_count - i == 0);
+  //@ close visited_node_p(node, _, _, node_subtree, _, depth);
 }
 
 /*
