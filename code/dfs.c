@@ -1,7 +1,7 @@
 /*
- * Prooved: Each node in a “tree” is visited and the distance of the child
- * is bigger by one than the distance of the parent. Also prooved that
- * tree is unchanged.
+ * Proved: Each node in a “tree” is visited and the distance of the child
+ * is bigger by one than the distance of the parent. Also proved that
+ * the tree is left unchanged.
  */
 struct node {
   int children_count;
@@ -12,10 +12,21 @@ struct node {
 
 /*@
 
-inductive subtree_children_i = subtree_children_nil |
-                               subtree_children_cons(subtree_i, subtree_children_i);
+// The representation of the tree using inductive data types. subtree_i
+// represents a tree, which root is node, and subtree_children_i
+// represents a list of children nodes of that node. These data structures
+// are needed for proving that the structure of the tree is not modified
+// by the algorithm.
+
+inductive subtree_children_i =  subtree_children_nil |
+                                subtree_children_cons(
+                                  subtree_i,
+                                  subtree_children_i);
 
 inductive subtree_i = subtree_cons(struct node *, subtree_children_i);
+
+// Helper fixpoint functions and lemmas for working with inductive data
+// types.
 
 fixpoint subtree_children_i children_merge(
     subtree_children_i nodes1,
@@ -57,6 +68,9 @@ lemma void children_merge_nil(subtree_children_i nodes)
  }
 }
 
+// Predicates that expresses the fact that the tree starting at node
+// node is unvisited.
+
 predicate unvisited_node_p(
     struct node *node,
     int children_count,
@@ -89,6 +103,8 @@ predicate unvisited_children_p(
   unvisited_children_p(start + 1, count - 1, ?children_nodes_left) &*&
   children_nodes == subtree_children_cons(start_subtree, children_nodes_left);
 
+// Predicates that expresses the fact that the node is being analysed now.
+
 predicate visiting_node_p(
     struct node *node,
     int children_count,
@@ -104,6 +120,9 @@ predicate visiting_node_p(
   subtree == subtree_cons(node, children_nodes) &*&
   node->parent |-> parent &*&
   node->distance |-> distance;
+
+// Predicates that expresses the fact that the tree starting at node
+// node is visited.
 
 predicate visited_node_p(
     struct node *node,
@@ -144,6 +163,8 @@ predicate visited_children_p(
                      parent, distance) &*&
   children_nodes == subtree_children_cons(start_subtree, children_nodes_left);
 
+// Helper lemmas.
+
 lemma void visited_children_append(
     struct node *children,
     int count)
@@ -170,6 +191,12 @@ lemma void visited_children_append(
 
 @*/
 
+/*
+ * This function recursively visits the subtree, which root node is node.
+ *
+ * It sets the node->parent pointer to point to the parent of the node and
+ * sets node->distance = node->parent->distance + 1.
+ */
 void dfs_worker(struct node *node, int depth)
   /*@ requires  depth >= 0 &*&
                 visiting_node_p(node, ?node_children_count,
@@ -257,6 +284,9 @@ void dfs_worker(struct node *node, int depth)
   }
 }
 
+/*
+ * This function recursively visits the subtree, which root node is node.
+ */
 void dfs(struct node *node)
   /*@ requires  unvisited_node_p(node, ?node_children_count,
                                  ?node_children, ?node_subtree,
